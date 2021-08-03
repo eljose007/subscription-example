@@ -90,11 +90,15 @@ async function startApolloServer(typeDefs: any, resolvers: any) {
     process.on(signal, () => subscriptionServer.close());
   });
 
+  const PORT = process.env.PORT || 4000;
+
   // Modified server startup
   await new Promise((resolve: any) =>
-    httpServer.listen({ port: 4000 }, resolve)
+    httpServer.listen({ port: PORT }, resolve)
   );
-  console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`);
+  console.log(
+    `🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`
+  );
 }
 
 startApolloServer(typeDefs, resolvers);
