@@ -1,4 +1,4 @@
-import { gql } from "apollo-server-express";
+import "reflect-metadata";
 import { ApolloServer } from "apollo-server-express";
 import express from "express";
 import { createServer } from "http";
@@ -6,57 +6,53 @@ import { execute, subscribe } from "graphql";
 import { SubscriptionServer } from "subscriptions-transport-ws";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { PubSub } from "graphql-subscriptions";
+import { buildSchema } from "type-graphql";
+import { MessageResolver } from "./resolvers/message";
 
-const pubsub = new PubSub();
-
-// A schema is a collection of type definitions (hence "typeDefs")
-// that together define the "shape" of queries that are executed against
-// your data.
-const typeDefs = gql`
-  type Query {
-    books: [String]
-  }
-  type Mutation {
-    addBook(book: String): String
-  }
-  type Subscription {
-    bookAdded: String
-  }
-`;
-
-const booksBD: [String?] = [];
+const pubSub = new PubSub();
 
 // Resolvers define the technique for fetching the types defined in the
 // schema. This resolver retrieves books from the "books" array above.
-const resolvers = {
-  Query: {
-    books: () => {
-      console.log({ booksBD });
-      return booksBD;
-    },
-  },
-  Mutation: {
-    addBook(parent: any, { book }: any) {
-      booksBD.push(book);
-      pubsub.publish("BOOK_ADDED", { bookAdded: book });
-      return book;
-    },
-  },
-  Subscription: {
-    bookAdded: {
-      subscribe: () => pubsub.asyncIterator(["BOOK_ADDED"]),
-    },
-  },
-};
+// const resolvers = {
+//   Query: {
+//     books: () => {
+//       console.log({ booksBD });
+//       return booksBD;
+//     },
+//   },
+//   Mutation: {
+//     addBook(parent: any, { book }: any) {
+//       booksBD.push(book);
+//       pubsub.publish("BOOK_ADDED", { bookAdded: book });
+//       return book;
+//     },
+//   },
+//   Subscription: {
+//     bookAdded: {
+//       subscribe: () => pubsub.asyncIterator(["BOOK_ADDED"]),
+//     },
+//   },
+// };
 
-async function startApolloServer(typeDefs: any, resolvers: any) {
+const messages: String[] = ["uno", "dos"];
+
+async function startApolloServer() {
   const app = express();
   const httpServer = createServer(app);
 
-  const schema = makeExecutableSchema({ typeDefs, resolvers });
+  const schema = await buildSchema({
+    resolvers: [MessageResolver],
+    pubSub,
+  });
 
   // Same ApolloServer initialization as before
-  const server = new ApolloServer({ typeDefs, resolvers });
+  const server = new ApolloServer({
+    schema,
+    context: {
+      pubSub,
+      messages,
+    },
+  });
 
   // Required logic for integrating with Express
   await server.start();
@@ -101,4 +97,4 @@ async function startApolloServer(typeDefs: any, resolvers: any) {
   );
 }
 
-startApolloServer(typeDefs, resolvers);
+startApolloServer();
